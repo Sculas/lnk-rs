@@ -14,7 +14,7 @@ repository = "https://github.com/lilopkins/lnk-rs"
 [features]
 default = ["serde"]
 binwrite = [ "stability" ]
-unstable-binwrite = [ ]
+unstable-save = []
 serde = ["dep:serde", "dep:serde_json", "bitflags/serde"]
 lnk2json = ["serde", "dep:clap", "dep:simplelog", "dep:clap-verbosity-flag", "dep:clio", "dep:anyhow"]
 
