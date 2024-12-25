@@ -172,7 +172,11 @@ impl ShellLink {
     /// Note that this doesn't save any [`ExtraData`](struct.ExtraData.html) entries.
     #[cfg(feature = "binwrite")]
     #[cfg_attr(feature = "binwrite", stability::unstable(feature = "save"))]
-    pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), Error> {
+    pub fn save<P: AsRef<std::path::Path>>(
+        &self,
+        path: P,
+        encoding: &'static Encoding,
+    ) -> Result<(), Error> {
         use binrw::BinWrite;
 
         let mut w = BufWriter::new(File::create(path)?);
@@ -180,10 +184,14 @@ impl ShellLink {
         debug!("Writing header...");
         // Invoke binwrite
         self.header()
-            .write_options(&mut w, binrw::Endian::Little, ())
+            .write_le(&mut w)
             .map_err(|be| Error::while_writing("Header", be))?;
 
-        // let link_flags = *self.header().link_flags();
+        let link_flags = *self.header().link_flags();
+
+        self.string_data
+            .write_le_args(&mut w, (link_flags, encoding))
+            .map_err(|be| Error::while_writing("StringData", be))?;
 
         // if link_flags.contains(LinkFlags::HAS_LINK_TARGET_ID_LIST) {
         //     if let None = self.linktarget_id_list {
@@ -305,6 +313,7 @@ impl ShellLink {
         let string_data: StringData = reader
             .read_le_args((link_flags, default_codepage))
             .map_err(|be| Error::while_parsing("StringData", be))?;
+
         let extra_data: ExtraData = reader
             .read_le_args((default_codepage,))
             .map_err(|be| Error::while_parsing("ExtraData", be))?;
@@ -359,34 +368,34 @@ impl ShellLink {
     pub fn set_name(&mut self, name: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_NAME, name.is_some());
-        self.string_data_mut().set_name_string(name);
+        self.string_data_mut().set_name_string(name.map(|s| s.into()));
     }
 
     /// Set the shell link's relative path
     pub fn set_relative_path(&mut self, relative_path: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_RELATIVE_PATH, relative_path.is_some());
-        self.string_data_mut().set_relative_path(relative_path);
+        self.string_data_mut().set_relative_path(relative_path.map(|s| s.into()));
     }
 
     /// Set the shell link's working directory
     pub fn set_working_dir(&mut self, working_dir: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_WORKING_DIR, working_dir.is_some());
-        self.string_data_mut().set_working_dir(working_dir);
+        self.string_data_mut().set_working_dir(working_dir.map(|s| s.into()));
     }
 
     /// Set the shell link's arguments
     pub fn set_arguments(&mut self, arguments: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_ARGUMENTS, arguments.is_some());
-        self.string_data_mut().set_command_line_arguments(arguments);
+        self.string_data_mut().set_command_line_arguments(arguments.map(|s| s.into()));
     }
 
     /// Set the shell link's icon location
     pub fn set_icon_location(&mut self, icon_location: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_ICON_LOCATION, icon_location.is_some());
-        self.string_data_mut().set_icon_location(icon_location);
+        self.string_data_mut().set_icon_location(icon_location.map(|s| s.into()));
     }
 }

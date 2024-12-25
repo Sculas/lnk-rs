@@ -1,32 +1,29 @@
-use std::fmt::Display;
-
-use binrw::{BinRead, BinReaderExt};
-use encoding_rs::UTF_16LE;
+use binrw::{BinReaderExt, BinResult};
+use encoding_rs::{Encoding, UTF_16LE};
 use log::trace;
 
-use crate::StringEncoding;
+#[cfg(feature = "binwrite")]
+use binrw::BinWrite;
 
-/// represents a string which is not NULL-terminated,
-/// but whose length is known. The first 2 byte of the binary
-/// representation of this string store the length
-#[derive(Clone, Debug)]
-pub struct SizedString(String);
+use crate::{LinkFlags, StringEncoding};
 
-impl BinRead for SizedString {
-    type Args<'a> = (StringEncoding,);
-
-    fn read_options<R: std::io::Read + std::io::Seek>(
-        reader: &mut R,
-        _endian: binrw::Endian,
-        args: Self::Args<'_>,
-    ) -> binrw::BinResult<Self> {
+/// reads a sized string from `reader` and converts it into a [`String`]
+#[binrw::parser(reader: reader)]
+pub fn parse_sized_string(
+    link_flags: LinkFlags,
+    expected_flag: LinkFlags,
+    encoding: &'static Encoding,
+) -> BinResult<Option<String>> {
+    if link_flags.contains(expected_flag) {
         let count_characters: u16 = reader.read_le()?;
         trace!(
             "reading sized string of size '{count_characters}' at 0x{:08x}",
             reader.stream_position()?
         );
 
-        match args.0 {
+        let encoding = StringEncoding::from(link_flags, encoding);
+
+        match encoding {
             StringEncoding::CodePage(default_encoding) => {
                 let mut buffer = vec![0; count_characters.into()];
                 reader.read_exact(&mut buffer)?;
@@ -39,7 +36,7 @@ impl BinRead for SizedString {
                         ),
                     });
                 }
-                Ok(Self(cow.to_string()))
+                Ok(Some(cow.to_string()))
             }
             StringEncoding::Unicode => {
                 let mut buffer = vec![0; (count_characters * 2).into()];
@@ -53,20 +50,42 @@ impl BinRead for SizedString {
                         ),
                     });
                 }
-                Ok(Self(cow.to_string()))
+                Ok(Some(cow.to_string()))
             }
         }
+    } else {
+        Ok(None)
     }
 }
 
-impl Display for SizedString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
+/// converts a [`String`] to a sized string and writes it
+#[cfg(feature = "binwrite")]
+#[cfg_attr(feature="binwrite", binrw::writer(writer: writer))]
+pub fn write_sized_string(
+    s: &Option<String>,
+    link_flags: LinkFlags,
+    expected_flag: LinkFlags,
+    encoding: &'static Encoding,
+) -> BinResult<()> {
+    if link_flags.contains(expected_flag) {
+        assert!(s.is_some());
+        let s = s.as_ref().expect("the flags indicate that there should be a value, but there is none");
+        let size = u16::try_from(s.len()).map_err(|_| binrw::Error::Custom {
+            pos: writer.stream_position().unwrap(),
+            err: Box::new("String is too long to be written"),
+        })?;
 
-impl AsRef<str> for SizedString {
-    fn as_ref(&self) -> &str {
-        &self.0
+        size.write_le(writer)?;
+
+        let encoding = StringEncoding::from(link_flags, encoding);
+        let bytes = match encoding {
+            StringEncoding::CodePage(cp) => cp.encode(&s),
+            StringEncoding::Unicode => UTF_16LE.encode(&s),
+        };
+
+        bytes.0.write(writer)
+    } else {
+        assert!(s.is_none());
+        Ok(())
     }
 }

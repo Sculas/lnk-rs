@@ -1,3 +1,4 @@
+use encoding_rs::WINDOWS_1252;
 use log::info;
 
 use std::fs;
@@ -16,7 +17,7 @@ fn create_read_blank() {
             .update_link_flags(lnk::LinkFlags::IS_UNICODE, *is_unicode);
         shortcut.set_name(Some("Blank name".to_string()));
         shortcut
-            .save(TEST_FILE_NAME)
+            .save(TEST_FILE_NAME, WINDOWS_1252)
             .expect("Failed to save shortcut!");
 
         info!("Reading shortcut...");
