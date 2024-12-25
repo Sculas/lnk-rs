@@ -22,7 +22,7 @@ fn create_read_blank() {
 
         info!("Reading shortcut...");
         let shortcut = lnk::ShellLink::open(TEST_FILE_NAME, encoding_rs::WINDOWS_1252).unwrap();
-        println!("{:#?}", shortcut);
+        //println!("{:#?}", shortcut);
         assert_eq!(
             shortcut.string_data().name_string(),
             &Some("Blank name".to_string())

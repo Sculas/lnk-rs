@@ -189,6 +189,7 @@ impl ShellLink {
 
         let link_flags = *self.header().link_flags();
 
+        debug!("Writing StringData...");
         self.string_data
             .write_le_args(&mut w, (link_flags, encoding))
             .map_err(|be| Error::while_writing("StringData", be))?;
@@ -368,34 +369,39 @@ impl ShellLink {
     pub fn set_name(&mut self, name: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_NAME, name.is_some());
-        self.string_data_mut().set_name_string(name.map(|s| s.into()));
+        self.string_data_mut()
+            .set_name_string(name);
     }
 
     /// Set the shell link's relative path
     pub fn set_relative_path(&mut self, relative_path: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_RELATIVE_PATH, relative_path.is_some());
-        self.string_data_mut().set_relative_path(relative_path.map(|s| s.into()));
+        self.string_data_mut()
+            .set_relative_path(relative_path);
     }
 
     /// Set the shell link's working directory
     pub fn set_working_dir(&mut self, working_dir: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_WORKING_DIR, working_dir.is_some());
-        self.string_data_mut().set_working_dir(working_dir.map(|s| s.into()));
+        self.string_data_mut()
+            .set_working_dir(working_dir);
     }
 
     /// Set the shell link's arguments
     pub fn set_arguments(&mut self, arguments: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_ARGUMENTS, arguments.is_some());
-        self.string_data_mut().set_command_line_arguments(arguments.map(|s| s.into()));
+        self.string_data_mut()
+            .set_command_line_arguments(arguments);
     }
 
     /// Set the shell link's icon location
     pub fn set_icon_location(&mut self, icon_location: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_ICON_LOCATION, icon_location.is_some());
-        self.string_data_mut().set_icon_location(icon_location.map(|s| s.into()));
+        self.string_data_mut()
+            .set_icon_location(icon_location);
     }
 }
