@@ -21,7 +21,7 @@ pub struct StringData {
     /// shortcut that is displayed to end users to identify the purpose of the
     /// shell link. This structure MUST be present if the HasName flag is set.
     #[br(
-        if(link_flags & LinkFlags::HAS_NAME == LinkFlags::HAS_NAME),
+        if(link_flags.contains(LinkFlags::HAS_NAME)),
         args(StringEncoding::from(link_flags, default_codepage)),
         map=|s: Option<SizedString>|s.map(|t| t.to_string())
     )]
@@ -32,7 +32,7 @@ pub struct StringData {
     /// specified, this string SHOULD be used when resolving the link. This
     /// structure MUST be present if the HasRelativePath flag is set.
     #[br(
-        if(link_flags & LinkFlags::HAS_RELATIVE_PATH == LinkFlags::HAS_RELATIVE_PATH),
+        if(link_flags.contains(LinkFlags::HAS_RELATIVE_PATH)),
         args(StringEncoding::from(link_flags, default_codepage)),
         map=|s: Option<SizedString>|s.map(|t| t.to_string())
     )]
@@ -42,7 +42,7 @@ pub struct StringData {
     /// of the working directory to be used when activating the link target.
     /// This structure MUST be present if the HasWorkingDir flag is set.
     #[br(
-        if(link_flags & LinkFlags::HAS_WORKING_DIR == LinkFlags::HAS_WORKING_DIR),
+        if(link_flags.contains(LinkFlags::HAS_WORKING_DIR)),
         args(StringEncoding::from(link_flags, default_codepage)),
         map=|s: Option<SizedString>|s.map(|t| t.to_string())
     )]
@@ -52,7 +52,7 @@ pub struct StringData {
     /// command-line arguments that are specified when activating the link
     /// target. This structure MUST be present if the HasArguments flag is set.
     #[br(
-        if(link_flags & LinkFlags::HAS_ARGUMENTS == LinkFlags::HAS_ARGUMENTS),
+        if(link_flags.contains(LinkFlags::HAS_ARGUMENTS)),
         args(StringEncoding::from(link_flags, default_codepage)),
         map=|s: Option<SizedString>|s.map(|t| t.to_string())
     )]
@@ -62,7 +62,7 @@ pub struct StringData {
     /// icon to be used when displaying a shell link item in an icon view. This
     /// structure MUST be present if the HasIconLocation flag is set.
     #[br(
-        if(link_flags & LinkFlags::HAS_ICON_LOCATION == LinkFlags::HAS_ICON_LOCATION),
+        if(link_flags.contains(LinkFlags::HAS_ICON_LOCATION)),
         args(StringEncoding::from(link_flags, default_codepage)),
         map=|s: Option<SizedString>|s.map(|t| t.to_string())
     )]
