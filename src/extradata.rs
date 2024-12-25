@@ -1,3 +1,5 @@
+use std::io::ErrorKind;
+
 use binrw::{BinRead, BinReaderExt};
 use encoding_rs::Encoding;
 #[allow(unused)]
@@ -128,7 +130,18 @@ impl BinRead for ExtraData {
     ) -> binrw::BinResult<Self> {
         let mut blocks = Vec::new();
         loop {
-            let block_size: u32 = reader.read_le()?;
+            let block_size: u32 = match reader.read_le() {
+                Ok(block_size) => block_size,
+                Err(binrw::Error::Io(why)) => {
+                    if why.kind() == ErrorKind::UnexpectedEof {
+                        break;
+                    } else {
+                        return Err(binrw::Error::Io(why))
+                    }
+                },
+                Err(why) => return Err(why)
+            };
+            
             if block_size == 0 {
                 break;
             } else {
