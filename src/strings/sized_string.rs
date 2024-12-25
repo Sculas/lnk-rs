@@ -80,6 +80,7 @@ pub fn write_sized_string(
         })?;
         log::info!("characters: {count_characters}");
         log::info!("link_flags: {link_flags:?}");
+        log::info!("encoding:   {encoding}");
 
         count_characters.write_le(writer)?;
 
