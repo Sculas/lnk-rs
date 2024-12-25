@@ -40,10 +40,9 @@ use getset::{Getters, MutGetters};
 use log::{debug, error, info, trace, warn};
 #[cfg(feature = "serde")]
 use serde::Serialize;
-use thiserror::Error;
 
 use std::io::BufReader;
-#[cfg(feature="binwrite")]
+#[cfg(feature = "binwrite")]
 use std::io::BufWriter;
 use std::path::Path;
 use std::{fs::File, io::Seek};
@@ -93,19 +92,8 @@ pub use itemid::*;
 #[macro_use]
 mod binread_flags;
 
-/// The error type for shell link parsing errors.
-#[derive(Debug, Error)]
-#[allow(missing_docs)]
-pub enum Error {
-    #[error("An IO error occurred: {0}")]
-    IoError(#[from] std::io::Error),
-
-    #[error("The parsed file isn't a shell link.")]
-    NotAShellLinkError,
-
-    #[error("Error while parsing: {0}")]
-    BinReadError(#[from] binrw::Error),
-}
+mod error;
+pub use error::Error;
 
 /// A shell link
 #[derive(Debug, Getters, MutGetters)]
@@ -182,8 +170,8 @@ impl ShellLink {
     /// Save a shell link.
     ///
     /// Note that this doesn't save any [`ExtraData`](struct.ExtraData.html) entries.
-    #[cfg(feature="binwrite")]
-    #[cfg_attr(feature="binwrite", stability::unstable(feature = "save"))]
+    #[cfg(feature = "binwrite")]
+    #[cfg_attr(feature = "binwrite", stability::unstable(feature = "save"))]
     pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), Error> {
         use binrw::BinWrite;
 
@@ -281,7 +269,9 @@ impl ShellLink {
         let mut reader = BufReader::new(File::open(path)?);
         trace!("Reading file.");
 
-        let shell_link_header: ShellLinkHeader = reader.read_le()?;
+        let shell_link_header: ShellLinkHeader = reader
+            .read_le()
+            .map_err(|be| Error::while_parsing("ShellLinkHeader", be))?;
         debug!("Shell header: {:#?}", shell_link_header);
 
         let mut linktarget_id_list = None;
@@ -291,8 +281,10 @@ impl ShellLink {
                 "A LinkTargetIDList is marked as present. Parsing now at position 0x{:0x}",
                 reader.stream_position()?
             );
-            let list: LinkTargetIdList = reader.read_le()?;
-            debug!("{:?}", list);
+            let list: LinkTargetIdList = reader
+                .read_le()
+                .map_err(|be| Error::while_parsing("LinkTargetIdList", be))?;
+            debug!("LinkTargetIDList: {:?}", list);
             linktarget_id_list = Some(list);
         }
 
@@ -300,15 +292,21 @@ impl ShellLink {
         if link_flags.contains(LinkFlags::HAS_LINK_INFO) {
             debug!(
                 "LinkInfo is marked as present. Parsing now at position 0x{:0x}",
-                reader.stream_position()?
+                reader.stream_position().unwrap()
             );
-            let info: LinkInfo = reader.read_le_args((default_codepage,))?;
+            let info: LinkInfo = reader
+                .read_le_args((default_codepage,))
+                .map_err(|be| Error::while_parsing("LinkInfo", be))?;
             debug!("{:?}", info);
             link_info = Some(info);
         }
 
-        let string_data: StringData = reader.read_le_args((link_flags, default_codepage))?;
-        let extra_data: ExtraData = reader.read_le_args((default_codepage,))?;
+        let string_data: StringData = reader
+            .read_le_args((link_flags, default_codepage))
+            .map_err(|be| Error::while_parsing("StringData", be))?;
+        let extra_data: ExtraData = reader
+            .read_le_args((default_codepage,))
+            .map_err(|be| Error::while_parsing("ExtraData", be))?;
 
         Ok(Self {
             header: shell_link_header,
