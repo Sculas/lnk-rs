@@ -34,7 +34,7 @@
 //! > **IMPORTANT!**: Writing capability is currently in a very early stage and probably won't work!
 
 use binrw::BinReaderExt;
-use encoding_rs::Encoding;
+use encoding_rs::{Encoding, UTF_16LE, WINDOWS_1252};
 use getset::{Getters, MutGetters};
 #[allow(unused)]
 use log::{debug, error, info, trace, warn};
@@ -116,6 +116,10 @@ pub struct ShellLink {
     /// returns the [`ExtraData`] structure
     #[allow(unused)]
     extra_data: extradata::ExtraData,
+
+    /// encoding used for this link
+    #[serde(skip)]
+    encoding: &'static Encoding,
 }
 
 impl Default for ShellLink {
@@ -123,12 +127,19 @@ impl Default for ShellLink {
     /// For those who are not familar with the Shell Link specification, I
     /// suggest you look at the [`ShellLink::new_simple`] method.
     fn default() -> Self {
+        let header = header::ShellLinkHeader::default();
+        let encoding = if header.link_flags().contains(LinkFlags::IS_UNICODE) {
+            UTF_16LE
+        } else {
+            WINDOWS_1252
+        };
         Self {
-            header: header::ShellLinkHeader::default(),
+            header,
             linktarget_id_list: None,
             link_info: None,
             string_data: Default::default(),
             extra_data: Default::default(),
+            encoding,
         }
     }
 }
@@ -167,6 +178,25 @@ impl ShellLink {
         Ok(sl)
     }
 
+    /// change the encoding for this link
+    pub fn with_encoding(mut self, encoding: &StringEncoding) -> Self {
+        match encoding {
+            StringEncoding::Unicode => {
+                self.header
+                    .link_flags_mut()
+                    .set(LinkFlags::IS_UNICODE, true);
+                self.encoding = UTF_16LE;
+            }
+            StringEncoding::CodePage(cp) => {
+                self.header
+                    .link_flags_mut()
+                    .set(LinkFlags::IS_UNICODE, false);
+                self.encoding = cp;
+            }
+        }
+        self
+    }
+
     /// Save a shell link.
     ///
     /// Note that this doesn't save any [`ExtraData`](struct.ExtraData.html) entries.
@@ -174,8 +204,7 @@ impl ShellLink {
     #[cfg_attr(feature = "binwrite", stability::unstable(feature = "save"))]
     pub fn save<P: AsRef<std::path::Path>>(
         &self,
-        path: P,
-        encoding: &'static Encoding,
+        path: P
     ) -> Result<(), Error> {
         use binrw::BinWrite;
 
@@ -191,7 +220,7 @@ impl ShellLink {
 
         debug!("Writing StringData...");
         self.string_data
-            .write_le_args(&mut w, (link_flags, encoding))
+            .write_le_args(&mut w, (link_flags, self.encoding))
             .map_err(|be| Error::while_writing("StringData", be))?;
 
         // if link_flags.contains(LinkFlags::HAS_LINK_TARGET_ID_LIST) {
@@ -273,7 +302,7 @@ impl ShellLink {
     /// Open and parse a shell link
     pub fn open<P: AsRef<std::path::Path>>(
         path: P,
-        default_codepage: &'static Encoding,
+        encoding: &'static Encoding,
     ) -> Result<Self, Error> {
         debug!("Opening {:?}", path.as_ref());
         let mut reader = BufReader::new(File::open(path)?);
@@ -305,19 +334,28 @@ impl ShellLink {
                 reader.stream_position().unwrap()
             );
             let info: LinkInfo = reader
-                .read_le_args((default_codepage,))
+                .read_le_args((encoding,))
                 .map_err(|be| Error::while_parsing("LinkInfo", be))?;
             debug!("{:?}", info);
             link_info = Some(info);
         }
 
         let string_data: StringData = reader
-            .read_le_args((link_flags, default_codepage))
+            .read_le_args((link_flags, encoding))
             .map_err(|be| Error::while_parsing("StringData", be))?;
 
         let extra_data: ExtraData = reader
-            .read_le_args((default_codepage,))
+            .read_le_args((encoding,))
             .map_err(|be| Error::while_parsing("ExtraData", be))?;
+
+        let encoding = if shell_link_header
+            .link_flags()
+            .contains(LinkFlags::IS_UNICODE)
+        {
+            UTF_16LE
+        } else {
+            encoding
+        };
 
         Ok(Self {
             header: shell_link_header,
@@ -325,6 +363,7 @@ impl ShellLink {
             link_info,
             string_data,
             extra_data,
+            encoding,
         })
     }
 
@@ -369,39 +408,34 @@ impl ShellLink {
     pub fn set_name(&mut self, name: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_NAME, name.is_some());
-        self.string_data_mut()
-            .set_name_string(name);
+        self.string_data_mut().set_name_string(name);
     }
 
     /// Set the shell link's relative path
     pub fn set_relative_path(&mut self, relative_path: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_RELATIVE_PATH, relative_path.is_some());
-        self.string_data_mut()
-            .set_relative_path(relative_path);
+        self.string_data_mut().set_relative_path(relative_path);
     }
 
     /// Set the shell link's working directory
     pub fn set_working_dir(&mut self, working_dir: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_WORKING_DIR, working_dir.is_some());
-        self.string_data_mut()
-            .set_working_dir(working_dir);
+        self.string_data_mut().set_working_dir(working_dir);
     }
 
     /// Set the shell link's arguments
     pub fn set_arguments(&mut self, arguments: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_ARGUMENTS, arguments.is_some());
-        self.string_data_mut()
-            .set_command_line_arguments(arguments);
+        self.string_data_mut().set_command_line_arguments(arguments);
     }
 
     /// Set the shell link's icon location
     pub fn set_icon_location(&mut self, icon_location: Option<String>) {
         self.header_mut()
             .update_link_flags(LinkFlags::HAS_ICON_LOCATION, icon_location.is_some());
-        self.string_data_mut()
-            .set_icon_location(icon_location);
+        self.string_data_mut().set_icon_location(icon_location);
     }
 }

@@ -15,6 +15,7 @@ pub fn parse_sized_string(
     encoding: &'static Encoding,
 ) -> BinResult<Option<String>> {
     if link_flags.contains(expected_flag) {
+        log::info!("reading string at {}", reader.stream_position()?);
         let count_characters: u16 = reader.read_le()?;
         trace!(
             "reading sized string of size '{count_characters}' at 0x{:08x}",
@@ -22,6 +23,8 @@ pub fn parse_sized_string(
         );
 
         let encoding = StringEncoding::from(link_flags, encoding);
+
+        log::info!("characters: {count_characters}");
 
         match encoding {
             StringEncoding::CodePage(default_encoding) => {
@@ -68,20 +71,24 @@ pub fn write_sized_string(
     encoding: &'static Encoding,
 ) -> BinResult<()> {
     if link_flags.contains(expected_flag) {
+        log::info!("writing string at {}", writer.stream_position()?);
         assert!(s.is_some());
         let s = s.as_ref().expect("the flags indicate that there should be a value, but there is none");
-        let size = u16::try_from(s.len()).map_err(|_| binrw::Error::Custom {
+        let count_characters = u16::try_from(s.len()).map_err(|_| binrw::Error::Custom {
             pos: writer.stream_position().unwrap(),
             err: Box::new("String is too long to be written"),
         })?;
+        log::info!("characters: {count_characters}");
+        log::info!("link_flags: {link_flags:?}");
 
-        size.write_le(writer)?;
+        count_characters.write_le(writer)?;
 
         let encoding = StringEncoding::from(link_flags, encoding);
         let bytes = match encoding {
             StringEncoding::CodePage(cp) => cp.encode(&s),
             StringEncoding::Unicode => UTF_16LE.encode(&s),
         };
+        log::info!("bytes: {}", bytes.0.len());
 
         bytes.0.write(writer)
     } else {
