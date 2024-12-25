@@ -180,7 +180,8 @@ impl ShellLink {
         debug!("Writing header...");
         // Invoke binwrite
         self.header()
-            .write_options(&mut w, binrw::Endian::Little, ())?;
+            .write_options(&mut w, binrw::Endian::Little, ())
+            .map_err(|be| Error::while_writing("Header", be))?;
 
         // let link_flags = *self.header().link_flags();
 
