@@ -18,7 +18,7 @@
 //! use lnk::ShellLink;
 //! use encoding_rs::WINDOWS_1252;
 //! // ...
-//! let shortcut = lnk::ShellLink::open("tests/test.lnk", WINDOWS_1252).unwrap();
+//! let shortcut = lnk::ShellLink::open("tests/data/test.lnk", WINDOWS_1252).unwrap();
 //! println!("{:#?}", shortcut);
 //! ```
 //!

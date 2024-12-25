@@ -1,5 +1,5 @@
-const TEST_FILE_NAME: &str = "tests/test.lnk";
-const TEST_BLANK_FILE_NAME: &str = "tests/blank.txt";
+const TEST_FILE_NAME: &str = "tests/data/test.lnk";
+const TEST_BLANK_FILE_NAME: &str = "tests/data/blank.txt";
 
 use chrono::NaiveDate;
 use encoding_rs::WINDOWS_1252;
