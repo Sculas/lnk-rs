@@ -202,10 +202,7 @@ impl ShellLink {
     /// Note that this doesn't save any [`ExtraData`](struct.ExtraData.html) entries.
     #[cfg(feature = "binwrite")]
     #[cfg_attr(feature = "binwrite", stability::unstable(feature = "save"))]
-    pub fn save<P: AsRef<std::path::Path>>(
-        &self,
-        path: P
-    ) -> Result<(), Error> {
+    pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), Error> {
         use binrw::BinWrite;
 
         let mut w = BufWriter::new(File::create(path)?);
@@ -373,7 +370,7 @@ impl ShellLink {
     /// of this method will be `None`
     pub fn link_target(&self) -> Option<String> {
         if let Some(info) = self.link_info().as_ref() {
-            let base_path = if info
+            let mut base_path = if info
                 .link_info_flags()
                 .has_common_network_relative_link_and_path_suffix()
             {
@@ -390,15 +387,22 @@ impl ShellLink {
                     .to_string()
             };
 
-            let separator = if base_path.ends_with('\\') { "" } else { "\\" };
-
             let common_path = info
                 .common_path_suffix_unicode()
                 .as_ref()
                 .map(|s| &s[..])
                 .unwrap_or(info.common_path_suffix());
 
-            Some(format!("{base_path}{separator}{common_path}"))
+            // join base_path and common_path;
+            // make sure they're divided by exactly one '\' character.
+            // if common_path is empty, there's nothing to join.
+            if ! common_path.is_empty() {
+                if ! base_path.ends_with('\\') {
+                    base_path.push('\\');
+                }
+                base_path.push_str(common_path);
+            }
+            Some(base_path)
         } else {
             None
         }
