@@ -108,15 +108,16 @@ pub struct LinkInfo {
     #[br(
         if(link_info_header_size >= 0x24),
         assert(
-            if let Some(offset) = local_base_path_offset_unicode {
-                if link_info_flags.has_volume_id_and_local_base_path(){
+            if link_info_flags.has_volume_id_and_local_base_path() {
+                if let Some(offset) = local_base_path_offset_unicode {
                     offset > 0 && offset < link_info_size
                 } else {
                     false
                 }
             } else {
                 true
-            }
+            },
+            "offset has unexpected value: {local_base_path_offset_unicode:?}"
         )
     )]
     local_base_path_offset_unicode: Option<u32>,
@@ -130,11 +131,7 @@ pub struct LinkInfo {
         if(link_info_header_size >= 0x24),
         assert (
             if let Some(offset) = common_path_suffix_offset_unicode {
-                if link_info_flags.has_common_network_relative_link_and_path_suffix() {
-                    offset > 0 && offset < link_info_size
-                } else {
-                    false
-                }
+                offset > 0 && offset < link_info_size
             } else {true}
         )
     )]
@@ -263,12 +260,11 @@ binread_flags!(LinkInfoFlags, u32);
 #[allow(missing_docs)]
 impl LinkInfoFlags {
     pub fn has_volume_id_and_local_base_path(&self) -> bool {
-        *self & Self::VOLUME_ID_AND_LOCAL_BASE_PATH == Self::VOLUME_ID_AND_LOCAL_BASE_PATH
+        self.contains(Self::VOLUME_ID_AND_LOCAL_BASE_PATH)
     }
 
     pub fn has_common_network_relative_link_and_path_suffix(&self) -> bool {
-        *self & Self::COMMON_NETWORK_RELATIVE_LINK_AND_PATH_SUFFIX
-            == Self::COMMON_NETWORK_RELATIVE_LINK_AND_PATH_SUFFIX
+        self.contains(Self::COMMON_NETWORK_RELATIVE_LINK_AND_PATH_SUFFIX)
     }
 }
 
