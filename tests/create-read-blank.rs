@@ -1,5 +1,4 @@
-use encoding_rs::{UTF_16LE, WINDOWS_1252};
-use lnk::StringEncoding;
+use lnk::{encoding::WINDOWS_1252, StringEncoding};
 use log::info;
 
 use std::fs;

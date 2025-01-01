@@ -1,5 +1,4 @@
-use encoding_rs::WINDOWS_1252;
-use lnk::ShellLink;
+use lnk::{encoding::WINDOWS_1252, ShellLink};
 use log::debug;
 
 ///https://github.com/lilopkins/lnk-rs/pull/21#issuecomment-2560550817

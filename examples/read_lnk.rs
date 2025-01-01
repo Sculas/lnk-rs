@@ -1,6 +1,6 @@
 use std::env;
 
-use encoding_rs::WINDOWS_1252;
+use lnk::encoding::WINDOWS_1252;
 
 fn main() {
     pretty_env_logger::init();

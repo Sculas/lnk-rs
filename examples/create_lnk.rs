@@ -1,8 +1,6 @@
 use std::io::Result;
 use std::path::Path;
 
-use encoding_rs::WINDOWS_1252;
-
 fn main() -> Result<()> {
     pretty_env_logger::init();
 

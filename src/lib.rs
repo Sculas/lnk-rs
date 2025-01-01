@@ -16,7 +16,7 @@
 //! A simple example appears as follows:
 //! ```
 //! use lnk::ShellLink;
-//! use encoding_rs::WINDOWS_1252;
+//! use lnk::encoding::WINDOWS_1252;
 //! // ...
 //! let shortcut = lnk::ShellLink::open("tests/data/test.lnk", WINDOWS_1252).unwrap();
 //! println!("{:#?}", shortcut);
@@ -34,7 +34,6 @@
 //! > **IMPORTANT!**: Writing capability is currently in a very early stage and probably won't work!
 
 use binrw::BinReaderExt;
-use encoding_rs::{Encoding, UTF_16LE, WINDOWS_1252};
 use getset::{Getters, MutGetters};
 #[allow(unused)]
 use log::{debug, error, info, trace, warn};
@@ -119,7 +118,8 @@ pub struct ShellLink {
 
     /// encoding used for this link
     #[serde(skip)]
-    encoding: &'static Encoding,
+    #[getset(skip)]
+    encoding: &'static encoding_rs::Encoding,
 }
 
 impl Default for ShellLink {
@@ -129,9 +129,9 @@ impl Default for ShellLink {
     fn default() -> Self {
         let header = header::ShellLinkHeader::default();
         let encoding = if header.link_flags().contains(LinkFlags::IS_UNICODE) {
-            UTF_16LE
+            encoding_rs::UTF_16LE
         } else {
-            WINDOWS_1252
+            encoding_rs::WINDOWS_1252
         };
         Self {
             header,
@@ -185,7 +185,7 @@ impl ShellLink {
                 self.header
                     .link_flags_mut()
                     .set(LinkFlags::IS_UNICODE, true);
-                self.encoding = UTF_16LE;
+                self.encoding = encoding_rs::UTF_16LE;
             }
             StringEncoding::CodePage(cp) => {
                 self.header
@@ -297,9 +297,33 @@ impl ShellLink {
     }
 
     /// Open and parse a shell link
+    /// 
+    /// All string which are stored in the `lnk` file are encoded with either
+    /// Unicode (UTF-16LE) of any of the Windows code pages. Which of both is
+    /// being used is specified by the [`LinkFlags::IS_UNICODE`] flag. Microsoft
+    /// documents this as follows:
+    /// 
+    /// > If this bit is set, the StringData section contains Unicode-encoded
+    /// > strings; otherwise, it contains strings that are encoded using the
+    /// > system default code page.
+    /// >
+    /// > (<https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/ae350202-3ba9-4790-9e9e-98935f4ee5af>)
+    /// 
+    /// The system default code page is stored in
+    /// `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Nls\CodePage\ACP`
+    /// 
+    /// Because we do not know what the system default code page was, you must
+    /// specify this using the `encoding` parameter (see below). If you you do
+    /// not know the system default code page either, you're lost. There is no
+    /// way to correctly guess the used code page from the data in the `lnk`
+    /// file.
+    /// 
+    /// * `path` - path of the `lnk` file to be analyzed
+    /// * `encoding` - character encoding to be used if the `lnk` file is not
+    ///   Unicode encoded
     pub fn open<P: AsRef<std::path::Path>>(
         path: P,
-        encoding: &'static Encoding,
+        encoding: crate::strings::Encoding,
     ) -> Result<Self, Error> {
         debug!("Opening {:?}", path.as_ref());
         let mut reader = BufReader::new(File::open(path)?);
@@ -349,7 +373,7 @@ impl ShellLink {
             .link_flags()
             .contains(LinkFlags::IS_UNICODE)
         {
-            UTF_16LE
+            encoding_rs::UTF_16LE
         } else {
             encoding
         };
