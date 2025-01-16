@@ -27,6 +27,10 @@ use serde::Serialize;
 #[allow(unused)]
 #[br(import(default_codepage: &'static Encoding))]
 pub struct LinkInfo {
+    /// stores the beginning og this data structure
+    #[serde(skip)]
+    #[getset(skip)]
+    link_info_offset: CurrentOffset,
     /// LinkInfoSize (4 bytes): A 32-bit, unsigned integer that specifies the
     /// size, in bytes, of the LinkInfo structure. All offsets specified in
     /// this structure MUST be less than this value, and all strings contained
@@ -53,7 +57,8 @@ pub struct LinkInfo {
     #[br(
         assert(
             if link_info_flags.has_volume_id_and_local_base_path() {
-                volume_id_offset >= link_info_header_size && volume_id_offset < link_info_size
+                volume_id_offset >= link_info_header_size && 
+                volume_id_offset < link_info_size
             } else {
                 true // we handle the other case as non-fatal error
             }
@@ -63,8 +68,8 @@ pub struct LinkInfo {
                 x
             } else {
                 if x != 0 {
-                    log::warn!("The VolumeIDAndLocalBasePath flag was not set, but 
-                    the VolumeID field is not set to zero (actual value is
+                    log::warn!("The VolumeIDAndLocalBasePath flag was not set, \
+                    but the VolumeID field is not set to zero (actual value is \
                     0x{x:08x}). I set it to be zero.");
                 }
                 0
@@ -81,7 +86,8 @@ pub struct LinkInfo {
     #[br(
         assert(
             if link_info_flags.has_volume_id_and_local_base_path() {
-                local_base_path_offset >= link_info_header_size && local_base_path_offset < link_info_size
+                local_base_path_offset >= link_info_header_size &&
+                local_base_path_offset < link_info_size
             } else {
                 true // we handle the other case as non-fatal error
             }
@@ -91,9 +97,9 @@ pub struct LinkInfo {
                 x
             } else {
                 if x != 0 {
-                    log::warn!("The VolumeIDAndLocalBasePath flag was not set, but 
-                    the LocalBasePath field is not set to zero (actual value is
-                    0x{x:08x}). I set it to be zero.");
+                    log::warn!("The VolumeIDAndLocalBasePath flag was not set, \
+                    but the LocalBasePath field is not set to zero (actual \
+                    value is 0x{x:08x}). I set it to be zero.");
                 }
                 0
             }
@@ -109,7 +115,8 @@ pub struct LinkInfo {
     #[br(
         assert(
             if link_info_flags.has_common_network_relative_link_and_path_suffix() {
-                common_network_relative_link_offset >= link_info_header_size && common_network_relative_link_offset < link_info_size
+                common_network_relative_link_offset >= link_info_header_size &&
+                common_network_relative_link_offset < link_info_size
             } else {
                 true // we handle the other case as non-fatal error
             }
@@ -119,9 +126,10 @@ pub struct LinkInfo {
                 x
             } else {
                 if x != 0 {
-                    log::warn!("The CommonNetworkRelativeLinkAndPathSuffix flag was not set, but 
-                    the CommonNetworkRelativeLinkOffset field is not set to zero (actual value is
-                    0x{x:08x}). I set it to be zero.");
+                    log::warn!("The CommonNetworkRelativeLinkAndPathSuffix flag \
+                    was not set, but the CommonNetworkRelativeLinkOffset field \
+                    is not set to zero (actual value is 0x{x:08x}). I set it to \
+                    be zero.");
                 }
                 0
             }
@@ -132,7 +140,8 @@ pub struct LinkInfo {
     /// CommonPathSuffixOffset (4 bytes): A 32-bit, unsigned integer that
     /// specifies the location of the CommonPathSuffix field. This value is
     /// an offset, in bytes, from the start of the LinkInfo structure.
-    #[br(assert(common_path_suffix_offset < link_info_size && common_path_suffix_offset >= link_info_header_size))]
+    #[br(assert(common_path_suffix_offset < link_info_size &&
+                common_path_suffix_offset >= link_info_header_size))]
     common_path_suffix_offset: u32,
 
     /// LocalBasePathOffsetUnicode (4 bytes): An optional, 32-bit, unsigned
@@ -160,9 +169,9 @@ pub struct LinkInfo {
                 x
             } else {
                 if x != 0 {
-                    log::warn!("The VolumeIDAndLocalBasePath flag was not set, but 
-                    the LocalBasePathOffsetUnicode field is not set to zero (actual value is
-                    0x{x:08x}). I set it to be zero.");
+                    log::warn!("The VolumeIDAndLocalBasePath flag was not set,\
+                    but the LocalBasePathOffsetUnicode field is not set to zero\
+                    (actual value is 0x{x:08x}). I set it to be zero.");
                 }
                 0
             }
@@ -190,9 +199,9 @@ pub struct LinkInfo {
     /// was created. This field is present if the VolumeIDAndLocalBasePath
     /// flag is set.
     #[br(
-        //seek_before(SeekFrom::Start((*start_offset.as_ref() + volume_id_offset).into())),
         if(link_info_flags.has_volume_id_and_local_base_path()),
-        args(default_codepage)
+        args(default_codepage),
+        seek_before(binrw::io::SeekFrom::Start((link_info_offset.as_ref() + volume_id_offset).into()))
     )]
     volume_id: Option<VolumeID>,
 
@@ -203,7 +212,8 @@ pub struct LinkInfo {
     #[br(
         if(link_info_flags.has_volume_id_and_local_base_path()),
         args(StringEncoding::CodePage(default_codepage)),
-        map=|o: Option<NullTerminatedString>| o.map(|n| n.to_string())
+        map=|o: Option<NullTerminatedString>| o.map(|n| n.to_string()),
+        seek_before(binrw::io::SeekFrom::Start((link_info_offset.as_ref() + local_base_path_offset).into()))
     )]
     #[getset(skip)]
     local_base_path: Option<String>,
@@ -213,7 +223,8 @@ pub struct LinkInfo {
     /// is stored.
     #[br(
         if(link_info_flags.has_common_network_relative_link_and_path_suffix()),
-        args(default_codepage)
+        args(default_codepage),
+        seek_before(binrw::io::SeekFrom::Start((link_info_offset.as_ref() + common_network_relative_link_offset).into()))
     )]
     common_network_relative_link: Option<CommonNetworkRelativeLink>,
 
@@ -223,7 +234,8 @@ pub struct LinkInfo {
     #[br(
         if(common_path_suffix_offset != 0),
         args(StringEncoding::CodePage(default_codepage)),
-        map=|n: NullTerminatedString| n.to_string()
+        map=|n: NullTerminatedString| n.to_string(),
+        seek_before(binrw::io::SeekFrom::Start((link_info_offset.as_ref() + common_path_suffix_offset).into()))
     )]
     #[getset(skip)]
     common_path_suffix: String,
@@ -236,7 +248,8 @@ pub struct LinkInfo {
     #[br(
         if(link_info_header_size >= 0x24 && link_info_flags.has_volume_id_and_local_base_path()),
         args(StringEncoding::Unicode),
-        map=|o: Option<NullTerminatedString>| o.map(|n| n.to_string())
+        map=|o: Option<NullTerminatedString>| o.map(|n| n.to_string()),
+        seek_before(binrw::io::SeekFrom::Start((link_info_offset.as_ref() + local_base_path_offset_unicode.unwrap()).into()))
     )]
     local_base_path_unicode: Option<String>,
 
@@ -248,7 +261,8 @@ pub struct LinkInfo {
     #[br(
         if(link_info_header_size >= 0x24 && common_path_suffix_offset_unicode.map(|o| o != 0).unwrap_or(false)),
         args(StringEncoding::Unicode),
-        map=|o: Option<NullTerminatedString>| o.map(|n| n.to_string())
+        map=|o: Option<NullTerminatedString>| o.map(|n| n.to_string()),
+        seek_before(binrw::io::SeekFrom::Start((link_info_offset.as_ref() + common_path_suffix_offset_unicode.unwrap()).into()))
     )]
     common_path_suffix_unicode: Option<String>,
 }

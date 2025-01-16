@@ -297,27 +297,27 @@ impl ShellLink {
     }
 
     /// Open and parse a shell link
-    /// 
+    ///
     /// All string which are stored in the `lnk` file are encoded with either
     /// Unicode (UTF-16LE) of any of the Windows code pages. Which of both is
     /// being used is specified by the [`LinkFlags::IS_UNICODE`] flag. Microsoft
     /// documents this as follows:
-    /// 
+    ///
     /// > If this bit is set, the StringData section contains Unicode-encoded
     /// > strings; otherwise, it contains strings that are encoded using the
     /// > system default code page.
     /// >
     /// > (<https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/ae350202-3ba9-4790-9e9e-98935f4ee5af>)
-    /// 
+    ///
     /// The system default code page is stored in
     /// `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Nls\CodePage\ACP`
-    /// 
+    ///
     /// Because we do not know what the system default code page was, you must
     /// specify this using the `encoding` parameter (see below). If you you do
     /// not know the system default code page either, you're lost. There is no
     /// way to correctly guess the used code page from the data in the `lnk`
     /// file.
-    /// 
+    ///
     /// * `path` - path of the `lnk` file to be analyzed
     /// * `encoding` - character encoding to be used if the `lnk` file is not
     ///   Unicode encoded
@@ -344,12 +344,13 @@ impl ShellLink {
             let list: LinkTargetIdList = reader
                 .read_le()
                 .map_err(|be| Error::while_parsing("LinkTargetIdList", be))?;
-            debug!("LinkTargetIDList: {:?}", list);
+            debug!("LinkTargetIDList: {:#?}", list);
             linktarget_id_list = Some(list);
         }
 
         let mut link_info = None;
         if link_flags.contains(LinkFlags::HAS_LINK_INFO) {
+            let link_info_offset = reader.stream_position().unwrap();
             debug!(
                 "LinkInfo is marked as present. Parsing now at position 0x{:0x}",
                 reader.stream_position().unwrap()
@@ -357,14 +358,27 @@ impl ShellLink {
             let info: LinkInfo = reader
                 .read_le_args((encoding,))
                 .map_err(|be| Error::while_parsing("LinkInfo", be))?;
-            debug!("{:?}", info);
+            debug!("{:#?}", info);
+            debug_assert_eq!(
+                reader.stream_position().unwrap(),
+                link_info_offset + u64::from(*(info.link_info_size()))
+            );
             link_info = Some(info);
         }
 
+        debug!(
+            "reading StringData at 0x{:08x}",
+            reader.stream_position().unwrap()
+        );
         let string_data: StringData = reader
             .read_le_args((link_flags, encoding))
             .map_err(|be| Error::while_parsing("StringData", be))?;
+        debug!("{:#?}", string_data);
 
+        debug!(
+            "reading ExtraData at 0x{:08x}",
+            reader.stream_position().unwrap()
+        );
         let extra_data: ExtraData = reader
             .read_le_args((encoding,))
             .map_err(|be| Error::while_parsing("ExtraData", be))?;
@@ -420,8 +434,8 @@ impl ShellLink {
             // join base_path and common_path;
             // make sure they're divided by exactly one '\' character.
             // if common_path is empty, there's nothing to join.
-            if ! common_path.is_empty() {
-                if ! base_path.ends_with('\\') {
+            if !common_path.is_empty() {
+                if !base_path.ends_with('\\') {
                     base_path.push('\\');
                 }
                 base_path.push_str(common_path);
