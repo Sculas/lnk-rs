@@ -53,11 +53,23 @@ pub struct LinkInfo {
     #[br(
         assert(
             if link_info_flags.has_volume_id_and_local_base_path() {
-                volume_id_offset > 0 && volume_id_offset < link_info_size
+                volume_id_offset >= link_info_header_size && volume_id_offset < link_info_size
             } else {
-                volume_id_offset == 0
+                true // we handle the other case as non-fatal error
             }
-        )
+        ),
+        map = |x: u32| {
+            if link_info_flags.has_volume_id_and_local_base_path() {
+                x
+            } else {
+                if x != 0 {
+                    log::warn!("The VolumeIDAndLocalBasePath flag was not set, but 
+                    the VolumeID field is not set to zero (actual value is
+                    0x{x:08x}). I set it to be zero.");
+                }
+                0
+            }
+        }
     )]
     volume_id_offset: u32,
 
@@ -69,11 +81,23 @@ pub struct LinkInfo {
     #[br(
         assert(
             if link_info_flags.has_volume_id_and_local_base_path() {
-                local_base_path_offset > 0 && local_base_path_offset < link_info_size
+                local_base_path_offset >= link_info_header_size && local_base_path_offset < link_info_size
             } else {
-                local_base_path_offset == 0
+                true // we handle the other case as non-fatal error
             }
-        )
+        ),
+        map = |x: u32| {
+            if link_info_flags.has_volume_id_and_local_base_path() {
+                x
+            } else {
+                if x != 0 {
+                    log::warn!("The VolumeIDAndLocalBasePath flag was not set, but 
+                    the LocalBasePath field is not set to zero (actual value is
+                    0x{x:08x}). I set it to be zero.");
+                }
+                0
+            }
+        }
     )]
     local_base_path_offset: u32,
 
@@ -85,18 +109,30 @@ pub struct LinkInfo {
     #[br(
         assert(
             if link_info_flags.has_common_network_relative_link_and_path_suffix() {
-                common_network_relative_link_offset > 0 && common_network_relative_link_offset < link_info_size
+                common_network_relative_link_offset >= link_info_header_size && common_network_relative_link_offset < link_info_size
             } else {
-                common_network_relative_link_offset == 0
+                true // we handle the other case as non-fatal error
             }
-        )
+        ),
+        map = |x: u32| {
+            if link_info_flags.has_common_network_relative_link_and_path_suffix() {
+                x
+            } else {
+                if x != 0 {
+                    log::warn!("The CommonNetworkRelativeLinkAndPathSuffix flag was not set, but 
+                    the CommonNetworkRelativeLinkOffset field is not set to zero (actual value is
+                    0x{x:08x}). I set it to be zero.");
+                }
+                0
+            }
+        }
     )]
     common_network_relative_link_offset: u32,
 
     /// CommonPathSuffixOffset (4 bytes): A 32-bit, unsigned integer that
     /// specifies the location of the CommonPathSuffix field. This value is
     /// an offset, in bytes, from the start of the LinkInfo structure.
-    #[br(assert(common_path_suffix_offset < link_info_size && common_path_suffix_offset != 0))]
+    #[br(assert(common_path_suffix_offset < link_info_size && common_path_suffix_offset >= link_info_header_size))]
     common_path_suffix_offset: u32,
 
     /// LocalBasePathOffsetUnicode (4 bytes): An optional, 32-bit, unsigned
@@ -108,17 +144,29 @@ pub struct LinkInfo {
     #[br(
         if(link_info_header_size >= 0x24),
         assert(
-            if link_info_flags.has_volume_id_and_local_base_path() {
-                if let Some(offset) = local_base_path_offset_unicode {
-                    offset > 0 && offset < link_info_size
+            if let Some(offset) = local_base_path_offset_unicode {
+                if link_info_flags.has_volume_id_and_local_base_path() {
+                    offset >= link_info_header_size && offset < link_info_size
                 } else {
-                    false
+                    true // we handle the other case as non-fatal error
                 }
             } else {
-                true
+                true // this link doesn't handle unicode
             },
             "offset has unexpected value: {local_base_path_offset_unicode:?}"
-        )
+        ),
+        map = |x: Option<u32>| x.map(|x: u32| {
+            if link_info_flags.has_volume_id_and_local_base_path() {
+                x
+            } else {
+                if x != 0 {
+                    log::warn!("The VolumeIDAndLocalBasePath flag was not set, but 
+                    the LocalBasePathOffsetUnicode field is not set to zero (actual value is
+                    0x{x:08x}). I set it to be zero.");
+                }
+                0
+            }
+        })
     )]
     local_base_path_offset_unicode: Option<u32>,
 
@@ -131,7 +179,7 @@ pub struct LinkInfo {
         if(link_info_header_size >= 0x24),
         assert (
             if let Some(offset) = common_path_suffix_offset_unicode {
-                offset > 0 && offset < link_info_size
+                offset > link_info_header_size && offset < link_info_size
             } else {true}
         )
     )]
