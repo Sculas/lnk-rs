@@ -16,14 +16,7 @@ default = ["serde"]
 binwrite = ["stability"]
 unstable-save = []
 serde = ["dep:serde", "dep:serde_json", "bitflags/serde"]
-lnk2json = [
-    "serde",
-    "dep:clap",
-    "dep:simplelog",
-    "dep:clap-verbosity-flag",
-    "dep:clio",
-    "dep:anyhow",
-]
+lnk2json = ["serde", "dep:clap", "dep:simplelog", "dep:clap-verbosity-flag", "dep:clio", "dep:anyhow"]
 
 [[bin]]
 name = "lnk2json"
@@ -57,11 +50,7 @@ substring = "1.4"
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 
-clap = { version = "4", features = [
-    "derive",
-    "wrap_help",
-    "cargo",
-], optional = true }
+clap = { version = "4", features = ["derive", "wrap_help", "cargo"], optional = true }
 simplelog = { version = "0.12", optional = true }
 clap-verbosity-flag = { version = "3.0.2", optional = true }
 clio = { version = "0.3", features = ["clap-parse"], optional = true }
